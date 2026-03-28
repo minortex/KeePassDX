@@ -45,6 +45,11 @@ import com.kunzisoft.keepass.database.exception.RegisterInReadOnlyDatabaseExcept
 import com.kunzisoft.keepass.database.exception.SignatureDatabaseException
 import com.kunzisoft.keepass.database.exception.UnknownDatabaseLocationException
 import com.kunzisoft.keepass.database.exception.VersionDatabaseException
+import com.kunzisoft.keepass.database.exception.WebDavAuthenticationDatabaseException
+import com.kunzisoft.keepass.database.exception.WebDavConfigurationDatabaseException
+import com.kunzisoft.keepass.database.exception.WebDavConflictDatabaseException
+import com.kunzisoft.keepass.database.exception.WebDavDownloadDatabaseException
+import com.kunzisoft.keepass.database.exception.WebDavUploadDatabaseException
 import com.kunzisoft.keepass.database.exception.XMLMalformedDatabaseException
 import com.kunzisoft.keepass.model.PasskeyEntryFields.FIELD_CREDENTIAL_ID
 import com.kunzisoft.keepass.model.PasskeyEntryFields.FIELD_FLAG_BE
@@ -72,6 +77,11 @@ fun LocalizedException.getLocalizedMessage(resources: Resources): String? =
         is DuplicateUuidDatabaseException -> resources.getString(R.string.invalid_db_same_uuid, parameters[0], parameters[1])
         is XMLMalformedDatabaseException -> resources.getString(R.string.error_XML_malformed)
         is MergeDatabaseKDBException -> resources.getString(R.string.error_unable_merge_database_kdb)
+        is WebDavConfigurationDatabaseException -> resources.getString(R.string.error_webdav_config_missing)
+        is WebDavAuthenticationDatabaseException -> resources.getString(R.string.error_webdav_authentication)
+        is WebDavConflictDatabaseException -> resources.getString(R.string.error_webdav_conflict)
+        is WebDavDownloadDatabaseException -> resources.getString(R.string.error_webdav_download)
+        is WebDavUploadDatabaseException -> resources.getString(R.string.error_webdav_upload)
         is MoveEntryDatabaseException -> resources.getString(R.string.error_move_entry_here)
         is MoveGroupDatabaseException -> resources.getString(R.string.error_move_group_here)
         is CopyEntryDatabaseException -> resources.getString(R.string.error_copy_entry_here)
@@ -154,5 +164,4 @@ fun TemplateField.getLocalizedName(context: Context?, name: String): String {
         else -> name
     }
 }
-
 

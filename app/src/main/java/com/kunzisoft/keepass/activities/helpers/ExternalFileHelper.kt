@@ -55,32 +55,36 @@ class ExternalFileHelper {
 
     fun buildOpenDocument(onFileSelected: ((uri: Uri?) -> Unit)?) {
 
-        val resultCallback = ActivityResultCallback<Uri?> { result ->
+        val openDocumentResultCallback = ActivityResultCallback<Uri?> { result ->
             activity?.contentResolver?.takeUriPermission(result)
+            onFileSelected?.invoke(result)
+        }
+        val getContentResultCallback = ActivityResultCallback<Uri?> { result ->
+            // ACTION_GET_CONTENT grants temporary access only; it is not persistable.
             onFileSelected?.invoke(result)
         }
 
         getContentResultLauncher = if (fragment != null) {
             fragment?.registerForActivityResult(
                 GetContent(),
-                resultCallback
+                getContentResultCallback
             )
         } else {
             activity?.registerForActivityResult(
                 GetContent(),
-                resultCallback
+                getContentResultCallback
             )
         }
 
         openDocumentResultLauncher = if (fragment != null) {
             fragment?.registerForActivityResult(
                 OpenDocument(),
-                resultCallback
+                openDocumentResultCallback
             )
         } else {
             activity?.registerForActivityResult(
                 OpenDocument(),
-                resultCallback
+                openDocumentResultCallback
             )
         }
     }

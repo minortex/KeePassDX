@@ -44,6 +44,7 @@ import com.kunzisoft.keepass.database.element.Group
 import com.kunzisoft.keepass.database.element.node.Node
 import com.kunzisoft.keepass.database.element.node.NodeId
 import com.kunzisoft.keepass.model.GroupInfo
+import com.kunzisoft.keepass.database.action.SyncWebDavDatabaseRunnable
 import com.kunzisoft.keepass.services.DatabaseTaskNotificationService
 import com.kunzisoft.keepass.settings.PreferencesUtil
 import com.kunzisoft.keepass.tasks.ActionRunnable
@@ -173,6 +174,26 @@ abstract class DatabaseLockActivity : DatabaseModeActivity(),
                     finish()
                 }
             }
+            DatabaseTaskNotificationService.ACTION_DATABASE_SYNC_WEBDAV_TASK -> {
+                if (result.isSuccess) {
+                    reloadActivity()
+                    val bundle = result.data
+                    if (bundle != null) {
+                        val added = bundle.getInt(SyncWebDavDatabaseRunnable.RESULT_SYNC_ADDED_COUNT, 0)
+                        val deleted = bundle.getInt(SyncWebDavDatabaseRunnable.RESULT_SYNC_DELETED_COUNT, 0)
+                        val modified = bundle.getInt(SyncWebDavDatabaseRunnable.RESULT_SYNC_MODIFIED_COUNT, 0)
+                        if (added == 0 && deleted == 0 && modified == 0) {
+                            Toast.makeText(this, R.string.sync_success, Toast.LENGTH_LONG).show()
+                        } else {
+                            Toast.makeText(this, getString(R.string.sync_success_with_changes, added, deleted, modified), Toast.LENGTH_LONG).show()
+                        }
+                    } else {
+                        Toast.makeText(this, R.string.sync_success, Toast.LENGTH_LONG).show()
+                    }
+                } else {
+                    this.showActionErrorIfNeeded(result)
+                }
+            }
         }
     }
 
@@ -214,6 +235,26 @@ abstract class DatabaseLockActivity : DatabaseModeActivity(),
 
     fun mergeDatabaseFrom(uri: Uri, mainCredential: MainCredential) {
         mDatabaseViewModel.mergeDatabase(mAutoSaveEnable, uri, mainCredential)
+    }
+
+    fun syncDatabaseWithWebDav(uploadToWebDav: Boolean = true) {
+        // Sync must persist merged content locally whenever the database is writable.
+        mDatabaseViewModel.syncDatabaseWithWebDav(
+            save = !mDatabaseReadOnly,
+            uploadToWebDav = uploadToWebDav
+        )
+    }
+
+    fun showWebDavConfigurationPrompt(onConfigure: () -> Unit) {
+        if (isFinishing) return
+        AlertDialog.Builder(this)
+            .setTitle(R.string.webdav_config_prompt_title)
+            .setMessage(R.string.webdav_config_prompt_message)
+            .setPositiveButton(R.string.configure) { _, _ ->
+                onConfigure()
+            }
+            .setNegativeButton(R.string.menu_cancel, null)
+            .show()
     }
 
     fun reloadDatabase() {

@@ -118,6 +118,23 @@ class XMLMalformedDatabaseException : DatabaseInputException {
 
 class MergeDatabaseKDBException : DatabaseInputException()
 
+class WebDavConfigurationDatabaseException : DatabaseException()
+
+class WebDavAuthenticationDatabaseException : DatabaseException()
+
+class WebDavConflictDatabaseException : DatabaseException()
+
+class WebDavDownloadDatabaseException : DatabaseInputException {
+    constructor() : super()
+    constructor(string: String) : super(string)
+    constructor(throwable: Throwable) : super(throwable)
+}
+
+class WebDavUploadDatabaseException : DatabaseOutputException {
+    constructor(string: String) : super(string)
+    constructor(exception: Exception) : super(exception)
+}
+
 class MoveEntryDatabaseException : DatabaseException()
 
 class MoveGroupDatabaseException : DatabaseException()

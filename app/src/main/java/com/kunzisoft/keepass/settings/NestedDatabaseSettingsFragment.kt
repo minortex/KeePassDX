@@ -20,6 +20,7 @@
 package com.kunzisoft.keepass.settings
 
 import android.os.Bundle
+import android.text.InputType
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.Menu
@@ -36,10 +37,12 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
+import androidx.preference.EditTextPreference
 import androidx.preference.TwoStatePreference
 import com.kunzisoft.androidclearchroma.ChromaUtil
 import com.kunzisoft.keepass.R
 import com.kunzisoft.keepass.activities.dialogs.SetMainCredentialDialogFragment
+import com.kunzisoft.keepass.activities.legacy.DatabaseLockActivity
 import com.kunzisoft.keepass.activities.legacy.DatabaseRetrieval
 import com.kunzisoft.keepass.activities.legacy.resetAppTimeoutWhenViewTouchedOrFocused
 import com.kunzisoft.keepass.credentialprovider.UserVerificationActionType
@@ -110,6 +113,10 @@ class NestedDatabaseSettingsFragment : NestedSettingsFragment(), DatabaseRetriev
     private var mRoundPref: InputKdfNumberPreference? = null
     private var mMemoryPref: InputKdfSizePreference? = null
     private var mParallelismPref: InputKdfNumberPreference? = null
+    private var webDavUrlPref: EditTextPreference? = null
+    private var webDavUsernamePref: EditTextPreference? = null
+    private var webDavPasswordPref: EditTextPreference? = null
+    private var webDavSyncOnOpenPref: TwoStatePreference? = null
 
     private val menuProvider: MenuProvider = object: MenuProvider {
         override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {
@@ -117,9 +124,11 @@ class NestedDatabaseSettingsFragment : NestedSettingsFragment(), DatabaseRetriev
             if (mDatabaseReadOnly) {
                 menu.findItem(R.id.menu_save_database)?.isVisible = false
                 menu.findItem(R.id.menu_merge_database)?.isVisible = false
+                menu.findItem(R.id.menu_sync_webdav)?.isVisible = false
             }
             if (!mMergeDataAllowed) {
                 menu.findItem(R.id.menu_merge_database)?.isVisible = false
+                menu.findItem(R.id.menu_sync_webdav)?.isVisible = false
             }
         }
 
@@ -131,6 +140,21 @@ class NestedDatabaseSettingsFragment : NestedSettingsFragment(), DatabaseRetriev
                 }
                 R.id.menu_merge_database -> {
                     mergeDatabase(!mDatabaseReadOnly)
+                    true
+                }
+                R.id.menu_sync_webdav -> {
+                    context?.let { context ->
+                        val databaseUri = mDatabase?.fileUri
+                        if (databaseUri == null
+                            || !PreferencesUtil.isWebDavSyncConfigured(context, databaseUri)
+                        ) {
+                            (activity as? DatabaseLockActivity)?.showWebDavConfigurationPrompt {
+                                (activity as? SettingsActivity)?.onNestedPreferenceSelected(Screen.DATABASE)
+                            }
+                        } else {
+                            mDatabaseViewModel.syncDatabaseWithWebDav(!mDatabaseReadOnly)
+                        }
+                    }
                     true
                 }
                 R.id.menu_reload_database -> {
@@ -429,6 +453,96 @@ class NestedDatabaseSettingsFragment : NestedSettingsFragment(), DatabaseRetriev
         // Max history size
         dbMaxHistorySizePref = findPreference<InputNumberPreference>(getString(R.string.max_history_size_key))?.apply {
             summary = database.historyMaxSize.toString()
+        }
+
+        configureWebDavSyncPreferences(database)
+    }
+
+    private fun configureWebDavSyncPreferences(database: ContextualDatabase) {
+        val context = context ?: return
+        val databaseUri = database.fileUri ?: return
+
+        webDavUrlPref = findPreference(getString(R.string.webdav_url_key))
+        webDavUrlPref?.apply {
+            val value = PreferencesUtil.getWebDavUrl(context, databaseUri)
+            text = value
+            summary = if (value.isBlank()) {
+                getString(R.string.webdav_url_summary)
+            } else {
+                value
+            }
+            setOnPreferenceChangeListener { preference, newValue ->
+                val newText = (newValue as? String).orEmpty()
+                PreferencesUtil.setWebDavUrl(context, databaseUri, newText)
+                (preference as EditTextPreference).text = newText
+                preference.summary = if (newText.isBlank()) {
+                    getString(R.string.webdav_url_summary)
+                } else {
+                    newText
+                }
+                true
+            }
+        }
+
+        webDavUsernamePref = findPreference(getString(R.string.webdav_username_key))
+        webDavUsernamePref?.apply {
+            val value = PreferencesUtil.getWebDavUsername(context, databaseUri)
+            text = value
+            summary = if (value.isBlank()) {
+                getString(R.string.webdav_username_summary)
+            } else {
+                value
+            }
+            setOnPreferenceChangeListener { preference, newValue ->
+                val newText = (newValue as? String).orEmpty()
+                PreferencesUtil.setWebDavUsername(context, databaseUri, newText)
+                (preference as EditTextPreference).text = newText
+                preference.summary = if (newText.isBlank()) {
+                    getString(R.string.webdav_username_summary)
+                } else {
+                    newText
+                }
+                true
+            }
+        }
+
+        webDavPasswordPref = findPreference(getString(R.string.webdav_password_key))
+        webDavPasswordPref?.apply {
+            val value = PreferencesUtil.getWebDavPassword(context, databaseUri)
+            text = value
+            summary = if (value.isEmpty()) {
+                getString(R.string.webdav_password_not_set_summary)
+            } else {
+                getString(R.string.webdav_password_set_summary)
+            }
+            setOnBindEditTextListener { editText ->
+                editText.inputType =
+                    InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            }
+            setOnPreferenceChangeListener { preference, newValue ->
+                val newText = (newValue as? String).orEmpty()
+                PreferencesUtil.setWebDavPassword(context, databaseUri, newText)
+                (preference as EditTextPreference).text = newText
+                preference.summary = if (newText.isEmpty()) {
+                    getString(R.string.webdav_password_not_set_summary)
+                } else {
+                    getString(R.string.webdav_password_set_summary)
+                }
+                true
+            }
+        }
+
+        webDavSyncOnOpenPref = findPreference(getString(R.string.webdav_sync_on_open_key))
+        webDavSyncOnOpenPref?.apply {
+            isChecked = PreferencesUtil.isWebDavSyncOnOpenEnabled(context, databaseUri)
+            setOnPreferenceChangeListener { _, newValue ->
+                PreferencesUtil.setWebDavSyncOnOpenEnabled(
+                    context,
+                    databaseUri,
+                    newValue as Boolean
+                )
+                true
+            }
         }
     }
 

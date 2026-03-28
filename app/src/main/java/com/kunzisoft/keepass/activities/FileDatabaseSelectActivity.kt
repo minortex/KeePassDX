@@ -19,6 +19,7 @@
  */
 package com.kunzisoft.keepass.activities
 
+import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -30,6 +31,7 @@ import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
+import android.widget.EditText
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.viewModels
 import androidx.appcompat.widget.Toolbar
@@ -38,11 +40,11 @@ import androidx.core.view.isVisible
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.SimpleItemAnimator
+import com.google.android.material.textfield.TextInputLayout
 import com.google.android.material.snackbar.Snackbar
 import com.kunzisoft.keepass.R
 import com.kunzisoft.keepass.activities.dialogs.SetMainCredentialDialogFragment
 import com.kunzisoft.keepass.activities.helpers.ExternalFileHelper
-import com.kunzisoft.keepass.activities.helpers.setOpenDocumentClickListener
 import com.kunzisoft.keepass.activities.legacy.DatabaseModeActivity
 import com.kunzisoft.keepass.adapters.FileDatabaseHistoryAdapter
 import com.kunzisoft.keepass.app.database.FileDatabaseHistoryAction
@@ -51,6 +53,9 @@ import com.kunzisoft.keepass.credentialprovider.SpecialMode
 import com.kunzisoft.keepass.credentialprovider.TypeMode
 import com.kunzisoft.keepass.database.ContextualDatabase
 import com.kunzisoft.keepass.database.MainCredential
+import com.kunzisoft.keepass.database.action.WebDavClient
+import com.kunzisoft.keepass.database.exception.LocalizedException
+import com.kunzisoft.keepass.database.helper.getLocalizedMessage
 import com.kunzisoft.keepass.education.FileDatabaseSelectActivityEducation
 import com.kunzisoft.keepass.hardware.HardwareKey
 import com.kunzisoft.keepass.model.RegisterInfo
@@ -68,7 +73,9 @@ import com.kunzisoft.keepass.utils.getParcelableCompat
 import com.kunzisoft.keepass.view.asError
 import com.kunzisoft.keepass.view.showActionErrorIfNeeded
 import com.kunzisoft.keepass.viewmodels.DatabaseFilesViewModel
+import java.io.File
 import java.io.FileNotFoundException
+import kotlin.concurrent.thread
 
 class FileDatabaseSelectActivity : DatabaseModeActivity(),
         SetMainCredentialDialogFragment.AssignMainCredentialDialogListener {
@@ -138,7 +145,13 @@ class FileDatabaseSelectActivity : DatabaseModeActivity(),
             }
         }
         openDatabaseButtonView = findViewById(R.id.open_database_button)
-        openDatabaseButtonView?.setOpenDocumentClickListener(mExternalFileHelper)
+        openDatabaseButtonView?.setOnClickListener {
+            showOpenDatabaseSourceDialog(readOnly = false)
+        }
+        openDatabaseButtonView?.setOnLongClickListener {
+            showOpenDatabaseSourceDialog(readOnly = true)
+            true
+        }
 
         // History list
         val fileDatabaseHistoryRecyclerView = findViewById<RecyclerView>(R.id.file_list)
@@ -243,7 +256,10 @@ class FileDatabaseSelectActivity : DatabaseModeActivity(),
                     coordinatorLayout.showActionErrorIfNeeded(result)
                 }
                 ACTION_DATABASE_LOAD_TASK -> {
-                    launchGroupActivityIfLoaded(database)
+                    launchGroupActivityIfLoaded(
+                        database,
+                        triggerWebDavAutoSyncAfterUnlock = true
+                    )
                 }
             }
         }
@@ -256,6 +272,119 @@ class FileDatabaseSelectActivity : DatabaseModeActivity(),
         mExternalFileHelper?.createDocument(
             getString(R.string.database_file_name_default) +
                 getString(R.string.database_file_extension_default))
+    }
+
+    private fun showOpenDatabaseSourceDialog(readOnly: Boolean) {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.open_database_source_title)
+            .setItems(
+                arrayOf(
+                    getString(R.string.open_database_from_storage),
+                    getString(R.string.open_database_from_websync)
+                )
+            ) { _, which ->
+                when (which) {
+                    0 -> mExternalFileHelper?.openDocument(readOnly)
+                    1 -> showWebSyncOpenDialog()
+                }
+            }
+            .show()
+    }
+
+    private fun showWebSyncOpenDialog() {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_websync_open_database, null)
+        val urlLayout = dialogView.findViewById<TextInputLayout>(R.id.websync_url_layout)
+        val usernameLayout = dialogView.findViewById<TextInputLayout>(R.id.websync_username_layout)
+        val passwordLayout = dialogView.findViewById<TextInputLayout>(R.id.websync_password_layout)
+        val urlInput = dialogView.findViewById<EditText>(R.id.websync_url_input)
+        val usernameInput = dialogView.findViewById<EditText>(R.id.websync_username_input)
+        val passwordInput = dialogView.findViewById<EditText>(R.id.websync_password_input)
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.open_database_from_websync)
+            .setView(dialogView)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.menu_open, null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val url = urlInput.text?.toString()?.trim().orEmpty()
+                val username = usernameInput.text?.toString()?.trim().orEmpty()
+                val password = passwordInput.text?.toString().orEmpty()
+
+                val urlError = if (url.isEmpty()) getString(R.string.error_websync_url_required) else null
+                val usernameError = if (username.isEmpty()) getString(R.string.error_websync_username_required) else null
+                val passwordError = if (password.isEmpty()) getString(R.string.error_websync_password_required) else null
+                urlLayout.error = urlError
+                usernameLayout.error = usernameError
+                passwordLayout.error = passwordError
+
+                if (urlError == null && usernameError == null && passwordError == null) {
+                    dialog.dismiss()
+                    openDatabaseFromWebSync(url, username, password)
+                }
+            }
+        }
+        dialog.show()
+    }
+
+    private fun openDatabaseFromWebSync(url: String, username: String, password: String) {
+        val progressSnackbar = Snackbar.make(
+            coordinatorLayout,
+            getString(R.string.websync_open_downloading),
+            Snackbar.LENGTH_INDEFINITE
+        )
+        progressSnackbar.show()
+
+        thread(name = "WebSyncOpenDatabase") {
+            val tempFile = File.createTempFile("websync_open_", ".kdbx", cacheDir)
+            try {
+                WebDavClient(url, username, password).downloadToFile(tempFile)
+                val localDatabaseFile = buildWebSyncDatabaseFile(url)
+                tempFile.copyTo(localDatabaseFile, overwrite = true)
+                val databaseUri = Uri.fromFile(localDatabaseFile)
+
+                PreferencesUtil.setWebDavUrl(this, databaseUri, url)
+                PreferencesUtil.setWebDavUsername(this, databaseUri, username)
+                PreferencesUtil.setWebDavPassword(this, databaseUri, password)
+                PreferencesUtil.saveDefaultDatabasePath(this, databaseUri)
+                if (PreferencesUtil.rememberDatabaseLocations(this)) {
+                    FileDatabaseHistoryAction.getInstance(applicationContext)
+                        .addOrUpdateDatabaseUri(databaseUri)
+                }
+
+                runOnUiThread {
+                    progressSnackbar.dismiss()
+                    launchMainCredentialActivityWithPath(databaseUri)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Unable to open database from WebSync", e)
+                val errorMessage = (e as? LocalizedException)?.getLocalizedMessage(resources)
+                    ?: e.localizedMessage
+                    ?: getString(R.string.error_webdav_download)
+                runOnUiThread {
+                    progressSnackbar.dismiss()
+                    Snackbar.make(coordinatorLayout, errorMessage, Snackbar.LENGTH_LONG).asError().show()
+                }
+            } finally {
+                tempFile.delete()
+            }
+        }
+    }
+
+    private fun buildWebSyncDatabaseFile(url: String): File {
+        val storageDirectory = File(filesDir, WEBSYNC_DATABASE_DIRECTORY).apply {
+            if (!exists()) {
+                mkdirs()
+            }
+        }
+        val remoteName = runCatching { Uri.parse(url).lastPathSegment.orEmpty() }
+            .getOrDefault("")
+        val fileName = remoteName
+            .replace(Regex("[^a-zA-Z0-9._-]"), "_")
+            .trim('_', '.')
+            .ifBlank { DEFAULT_WEBSYNC_DATABASE_FILE_NAME }
+        return File(storageDirectory, fileName)
     }
 
     private fun fileNoFoundAction(e: FileNotFoundException) {
@@ -318,14 +447,18 @@ class FileDatabaseSelectActivity : DatabaseModeActivity(),
         }
     }
 
-    private fun launchGroupActivityIfLoaded(database: ContextualDatabase) {
+    private fun launchGroupActivityIfLoaded(
+        database: ContextualDatabase,
+        triggerWebDavAutoSyncAfterUnlock: Boolean = false
+    ) {
         if (database.loaded) {
             GroupActivity.launch(this,
                 database,
                 { onValidateSpecialMode() },
                 { onCancelSpecialMode() },
                 { onLaunchActivitySpecialMode() },
-                mCredentialActivityResultLauncher
+                mCredentialActivityResultLauncher,
+                triggerWebDavAutoSyncAfterUnlock
             )
         }
     }
@@ -419,7 +552,7 @@ class FileDatabaseSelectActivity : DatabaseModeActivity(),
                 openDatabaseButtonView!!,
             { tapTargetView ->
                 tapTargetView?.let {
-                    mExternalFileHelper?.openDocument()
+                    showOpenDatabaseSourceDialog(readOnly = false)
                 }
             },
             {
@@ -440,6 +573,8 @@ class FileDatabaseSelectActivity : DatabaseModeActivity(),
 
         private const val TAG = "FileDbSelectActivity"
         private const val EXTRA_DATABASE_URI = "EXTRA_DATABASE_URI"
+        private const val WEBSYNC_DATABASE_DIRECTORY = "websync"
+        private const val DEFAULT_WEBSYNC_DATABASE_FILE_NAME = "websync_database.kdbx"
 
         /*
          * -------------------------
