@@ -3,9 +3,30 @@ apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-parcelize'
 apply plugin: 'kotlin-kapt'
 
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+def hasReleaseSigning = keystoreProperties['storeFile']
+        && keystoreProperties['storePassword']
+        && keystoreProperties['keyAlias']
+        && keystoreProperties['keyPassword']
+
 android {
     namespace 'com.kunzisoft.keepass'
     compileSdkVersion 36
+
+    signingConfigs {
+        release {
+            if (hasReleaseSigning) {
+                storeFile rootProject.file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
+        }
+    }
 
     defaultConfig {
         applicationId "com.kunzisoft.keepass"
@@ -32,6 +53,9 @@ android {
     buildTypes {
         release {
             minifyEnabled = false
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 

@@ -92,6 +92,71 @@ object PreferencesUtil {
             context.resources.getBoolean(R.bool.hide_broken_locations_default))
     }
 
+    private fun webDavScopedKey(context: Context, baseKeyRes: Int, databaseUri: Uri): String {
+        return "${context.getString(baseKeyRes)}#${databaseUri}"
+    }
+
+    fun getWebDavUrl(context: Context, databaseUri: Uri): String {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        val scopedKey = webDavScopedKey(context, R.string.webdav_url_key, databaseUri)
+        return prefs.getString(scopedKey, "") ?: ""
+    }
+
+    fun setWebDavUrl(context: Context, databaseUri: Uri, value: String) {
+        PreferenceManager.getDefaultSharedPreferences(context)
+            .edit()
+            .putString(webDavScopedKey(context, R.string.webdav_url_key, databaseUri), value)
+            .apply()
+    }
+
+    fun getWebDavUsername(context: Context, databaseUri: Uri): String {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        val scopedKey = webDavScopedKey(context, R.string.webdav_username_key, databaseUri)
+        return prefs.getString(scopedKey, "") ?: ""
+    }
+
+    fun setWebDavUsername(context: Context, databaseUri: Uri, value: String) {
+        PreferenceManager.getDefaultSharedPreferences(context)
+            .edit()
+            .putString(webDavScopedKey(context, R.string.webdav_username_key, databaseUri), value)
+            .apply()
+    }
+
+    fun getWebDavPassword(context: Context, databaseUri: Uri): String {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        val scopedKey = webDavScopedKey(context, R.string.webdav_password_key, databaseUri)
+        return prefs.getString(scopedKey, "") ?: ""
+    }
+
+    fun setWebDavPassword(context: Context, databaseUri: Uri, value: String) {
+        PreferenceManager.getDefaultSharedPreferences(context)
+            .edit()
+            .putString(webDavScopedKey(context, R.string.webdav_password_key, databaseUri), value)
+            .apply()
+    }
+
+    fun isWebDavSyncConfigured(context: Context, databaseUri: Uri): Boolean {
+        return getWebDavUrl(context, databaseUri).trim().isNotEmpty()
+                && getWebDavUsername(context, databaseUri).trim().isNotEmpty()
+                && getWebDavPassword(context, databaseUri).isNotEmpty()
+    }
+
+    fun isWebDavSyncOnOpenEnabled(context: Context, databaseUri: Uri): Boolean {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        val scopedKey = webDavScopedKey(context, R.string.webdav_sync_on_open_key, databaseUri)
+        return prefs.getBoolean(
+            scopedKey,
+            context.resources.getBoolean(R.bool.webdav_sync_on_open_default)
+        )
+    }
+
+    fun setWebDavSyncOnOpenEnabled(context: Context, databaseUri: Uri, enabled: Boolean) {
+        PreferenceManager.getDefaultSharedPreferences(context)
+            .edit()
+            .putBoolean(webDavScopedKey(context, R.string.webdav_sync_on_open_key, databaseUri), enabled)
+            .apply()
+    }
+
     fun rememberKeyFileLocations(context: Context): Boolean {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
         return prefs.getBoolean(context.getString(R.string.remember_keyfile_locations_key),

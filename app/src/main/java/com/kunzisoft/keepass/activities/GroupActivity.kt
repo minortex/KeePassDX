@@ -100,6 +100,7 @@ import com.kunzisoft.keepass.model.RegisterInfo
 import com.kunzisoft.keepass.model.SearchInfo
 import com.kunzisoft.keepass.services.DatabaseTaskNotificationService.Companion.ACTION_DATABASE_UPDATE_ENTRY_TASK
 import com.kunzisoft.keepass.services.DatabaseTaskNotificationService.Companion.getNewEntry
+import com.kunzisoft.keepass.settings.NestedSettingsFragment
 import com.kunzisoft.keepass.settings.PreferencesUtil
 import com.kunzisoft.keepass.settings.SettingsActivity
 import com.kunzisoft.keepass.tasks.ActionRunnable
@@ -191,6 +192,7 @@ class GroupActivity : DatabaseLockActivity(),
     private var mCurrentGroup: Group? = null // Group currently visible (search or main group)
     private var mPreviousGroupsIds = mutableListOf<GroupState>()
     private var mOldGroupToUpdate: Group? = null
+    private var mWebDavAutoSyncTriggeredForDatabaseUri: String? = null
 
     private var mLockSearchListeners = false
     private val mOnSearchQueryTextListener = object : SearchView.OnQueryTextListener {
@@ -396,6 +398,22 @@ class GroupActivity : DatabaseLockActivity(),
                                         LocalDateTime.now().toString() +
                                         mDatabase?.defaultFileExtension
                             )
+                        }
+                    }
+                    R.id.menu_sync_webdav -> {
+                        val databaseUri = mDatabase?.fileUri
+                        if (databaseUri == null
+                            || !PreferencesUtil.isWebDavSyncConfigured(this@GroupActivity, databaseUri)
+                        ) {
+                            this@GroupActivity.showWebDavConfigurationPrompt {
+                                SettingsActivity.launch(
+                                    activity = this@GroupActivity,
+                                    timeoutEnable = true,
+                                    screen = NestedSettingsFragment.Screen.DATABASE
+                                )
+                            }
+                        } else {
+                            syncDatabaseWithWebDav()
                         }
                     }
                     R.id.menu_lock_all -> {
@@ -721,6 +739,29 @@ class GroupActivity : DatabaseLockActivity(),
         mBreadcrumbAdapter?.iconDrawableFactory = database.iconDrawableFactory
         refreshDatabaseViews()
         invalidateOptionsMenu()
+        triggerWebDavAutoSyncIfNeeded(database)
+    }
+
+    private fun triggerWebDavAutoSyncIfNeeded(database: ContextualDatabase) {
+        val autoSyncAfterUnlock = intent.getBooleanExtra(KEY_WEBDAV_AUTO_SYNC_AFTER_UNLOCK, false)
+        if (!autoSyncAfterUnlock) return
+        intent.removeExtra(KEY_WEBDAV_AUTO_SYNC_AFTER_UNLOCK)
+
+        if (mSpecialMode != SpecialMode.DEFAULT) return
+        if (mDatabaseReadOnly || !mMergeDataAllowed) return
+
+        val databaseUri = database.fileUri ?: return
+        val databaseUriString = databaseUri.toString()
+        val autoSyncedUriFromIntent = intent.getStringExtra(KEY_WEBDAV_AUTO_SYNC_DONE_URI)
+        if (autoSyncedUriFromIntent == databaseUriString) return
+        if (mWebDavAutoSyncTriggeredForDatabaseUri == databaseUriString) return
+        mWebDavAutoSyncTriggeredForDatabaseUri = databaseUriString
+
+        if (!PreferencesUtil.isWebDavSyncOnOpenEnabled(this, databaseUri)) return
+        if (!PreferencesUtil.isWebDavSyncConfigured(this, databaseUri)) return
+
+        intent.putExtra(KEY_WEBDAV_AUTO_SYNC_DONE_URI, databaseUriString)
+        syncDatabaseWithWebDav(uploadToWebDav = false)
     }
 
     private fun refreshDatabaseViews() {
@@ -1281,6 +1322,8 @@ class GroupActivity : DatabaseLockActivity(),
             val modeCondition = mSpecialMode == SpecialMode.DEFAULT
             menu.findItem(R.id.menu_app_settings)?.isVisible = modeCondition
             menu.findItem(R.id.menu_merge_from)?.isVisible = mMergeDataAllowed && modeCondition
+            menu.findItem(R.id.menu_sync_webdav)?.isVisible =
+                mMergeDataAllowed && !mDatabaseReadOnly && modeCondition
             menu.findItem(R.id.menu_save_copy_to)?.isVisible = modeCondition
             menu.findItem(R.id.menu_about)?.isVisible = modeCondition
             menu.findItem(R.id.menu_contribute)?.isVisible = modeCondition
@@ -1295,12 +1338,15 @@ class GroupActivity : DatabaseLockActivity(),
         if (mDatabaseReadOnly) {
             menu.findItem(R.id.menu_save_database)?.isVisible = false
             menu.findItem(R.id.menu_merge_database)?.isVisible = false
+            menu.findItem(R.id.menu_sync_webdav)?.isVisible = false
         }
         if (!mMergeDataAllowed) {
             menu.findItem(R.id.menu_merge_database)?.isVisible = false
+            menu.findItem(R.id.menu_sync_webdav)?.isVisible = false
         }
         if (mSpecialMode != SpecialMode.DEFAULT) {
             menu.findItem(R.id.menu_merge_database)?.isVisible = false
+            menu.findItem(R.id.menu_sync_webdav)?.isVisible = false
             menu.findItem(R.id.menu_reload_database)?.isVisible = false
         }
         // Menu for recycle bin
@@ -1431,6 +1477,21 @@ class GroupActivity : DatabaseLockActivity(),
             }
             R.id.menu_merge_database -> {
                 mergeDatabase()
+                return true
+            }
+            R.id.menu_sync_webdav -> {
+                val databaseUri = mDatabase?.fileUri
+                if (databaseUri == null || !PreferencesUtil.isWebDavSyncConfigured(this, databaseUri)) {
+                    showWebDavConfigurationPrompt {
+                        SettingsActivity.launch(
+                            activity = this,
+                            timeoutEnable = true,
+                            screen = NestedSettingsFragment.Screen.DATABASE
+                        )
+                    }
+                } else {
+                    syncDatabaseWithWebDav()
+                }
                 return true
             }
             R.id.menu_reload_database -> {
@@ -1583,6 +1644,8 @@ class GroupActivity : DatabaseLockActivity(),
         private const val GROUP_FRAGMENT_TAG = "GROUP_FRAGMENT_TAG"
         private const val OLD_GROUP_TO_UPDATE_KEY = "OLD_GROUP_TO_UPDATE_KEY"
         private const val AUTO_SEARCH_KEY = "AUTO_SEARCH_KEY"
+        private const val KEY_WEBDAV_AUTO_SYNC_DONE_URI = "KEY_WEBDAV_AUTO_SYNC_DONE_URI"
+        private const val KEY_WEBDAV_AUTO_SYNC_AFTER_UNLOCK = "KEY_WEBDAV_AUTO_SYNC_AFTER_UNLOCK"
 
         private fun buildIntent(
             context: Context,
@@ -1614,11 +1677,13 @@ class GroupActivity : DatabaseLockActivity(),
         fun launch(
             context: Context,
             database: ContextualDatabase,
-            autoSearch: Boolean = false
+            autoSearch: Boolean = false,
+            triggerWebDavAutoSyncAfterUnlock: Boolean = false
         ) {
             if (database.loaded) {
                 checkTimeAndBuildIntent(context, null) { intent ->
                     intent.putExtra(AUTO_SEARCH_KEY, autoSearch)
+                    intent.putExtra(KEY_WEBDAV_AUTO_SYNC_AFTER_UNLOCK, triggerWebDavAutoSyncAfterUnlock)
                     context.startActivity(intent)
                 }
             }
@@ -1708,7 +1773,8 @@ class GroupActivity : DatabaseLockActivity(),
             onValidateSpecialMode: () -> Unit,
             onCancelSpecialMode: () -> Unit,
             onLaunchActivitySpecialMode: () -> Unit,
-            activityResultLauncher: ActivityResultLauncher<Intent>?
+            activityResultLauncher: ActivityResultLauncher<Intent>?,
+            triggerWebDavAutoSyncAfterUnlock: Boolean = false
         ) {
             EntrySelectionHelper.doSpecialAction(
                 intent = activity.intent,
@@ -1717,7 +1783,8 @@ class GroupActivity : DatabaseLockActivity(),
                     launch(
                         activity,
                         database,
-                        true
+                        true,
+                        triggerWebDavAutoSyncAfterUnlock
                     )
                 },
                 searchAction = { searchInfo ->

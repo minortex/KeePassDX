@@ -147,6 +147,10 @@ class DatabaseViewModel(application: Application): AndroidViewModel(application)
         mDatabaseTaskProvider.startDatabaseMerge(save, fromDatabaseUri, mainCredential)
     }
 
+    fun syncDatabaseWithWebDav(save: Boolean, uploadToWebDav: Boolean = true) {
+        mDatabaseTaskProvider.startDatabaseSyncWebDav(save, uploadToWebDav)
+    }
+
     fun reloadDatabase(fixDuplicateUuid: Boolean, forceReload: Boolean = false) {
         if (!forceReload && database?.dataModifiedSinceLastLoading == true) {
             mActionState.value = ActionState.ShowDatabaseInfoReloadedDialog(fixDuplicateUuid)

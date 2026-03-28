@@ -18,7 +18,8 @@
   along with KeePassDX.  If not, see <http://www.gnu.org/licenses/>.
 -->
 <PreferenceScreen
-    xmlns:android="http://schemas.android.com/apk/res/android">
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <PreferenceCategory
         android:key="@string/database_category_general_key"
@@ -72,6 +73,40 @@
             android:persistent="false"
             android:title="@string/database_data_remove_unlinked_attachments_title"
             android:summary="@string/database_data_remove_unlinked_attachments_summary"/>
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        android:title="@string/webdav_sync_title">
+
+        <EditTextPreference
+            android:key="@string/webdav_url_key"
+            android:persistent="false"
+            android:title="@string/webdav_url_title"
+            android:summary="@string/webdav_url_summary"
+            app:iconSpaceReserved="false"/>
+
+        <EditTextPreference
+            android:key="@string/webdav_username_key"
+            android:persistent="false"
+            android:title="@string/webdav_username_title"
+            android:summary="@string/webdav_username_summary"
+            app:iconSpaceReserved="false"/>
+
+        <EditTextPreference
+            android:key="@string/webdav_password_key"
+            android:persistent="false"
+            android:title="@string/webdav_password_title"
+            android:summary="@string/webdav_password_summary"
+            app:iconSpaceReserved="false"/>
+
+        <SwitchPreferenceCompat
+            android:key="@string/webdav_sync_on_open_key"
+            android:persistent="false"
+            android:title="@string/webdav_sync_on_open_title"
+            android:summary="@string/webdav_sync_on_open_summary"
+            android:defaultValue="@bool/webdav_sync_on_open_default"
+            app:iconSpaceReserved="false"/>
+
     </PreferenceCategory>
 
     <PreferenceCategory

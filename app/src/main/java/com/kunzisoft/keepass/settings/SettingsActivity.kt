@@ -310,9 +310,16 @@ open class SettingsActivity
         private const val TAG_NESTED = "TAG_NESTED"
         private const val FRAGMENT_ARG = "FRAGMENT_ARG"
 
-        fun launch(activity: Activity, timeoutEnable: Boolean) {
+        fun launch(
+            activity: Activity,
+            timeoutEnable: Boolean,
+            screen: NestedSettingsFragment.Screen? = null
+        ) {
             val intent = Intent(activity, SettingsActivity::class.java)
             intent.putExtra(TIMEOUT_ENABLE_KEY, timeoutEnable)
+            screen?.let {
+                intent.putExtra(FRAGMENT_ARG, it.name)
+            }
             if (!timeoutEnable) {
                 activity.startActivity(intent)
             } else if (TimeoutHelper.checkTimeAndLockIfTimeout(activity)) {

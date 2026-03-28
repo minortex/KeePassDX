@@ -126,6 +126,7 @@ class MainCredentialActivity : DatabaseModeActivity() {
     private var mForceReadOnly: Boolean = false
     private var mUserVerificationAllowed: Boolean = false
     private var mForceUserVerificationAllowed: Boolean = false
+    private var mLoadTaskInProgress: Boolean = false
 
     override fun manageDatabaseInfo(): Boolean  = false
 
@@ -333,6 +334,7 @@ class MainCredentialActivity : DatabaseModeActivity() {
                 Toast.LENGTH_LONG
             ).show()
         }
+        if (mLoadTaskInProgress) return
         launchGroupActivityIfLoaded(database)
     }
 
@@ -344,8 +346,12 @@ class MainCredentialActivity : DatabaseModeActivity() {
         super.onDatabaseActionFinished(database, actionTask, result)
         when (actionTask) {
             ACTION_DATABASE_LOAD_TASK -> {
+                mLoadTaskInProgress = false
                 if (result.isSuccess) {
-                    launchGroupActivityIfLoaded(database)
+                    launchGroupActivityIfLoaded(
+                        database,
+                        triggerWebDavAutoSyncAfterUnlock = true
+                    )
                 } else {
                     mainCredentialView?.requestPasswordFocus()
                     // Manage special exceptions
@@ -434,7 +440,10 @@ class MainCredentialActivity : DatabaseModeActivity() {
         getUriFromIntent(intent)
     }
 
-    private fun launchGroupActivityIfLoaded(database: ContextualDatabase) {
+    private fun launchGroupActivityIfLoaded(
+        database: ContextualDatabase,
+        triggerWebDavAutoSyncAfterUnlock: Boolean = false
+    ) {
         // Check if database really loaded
         if (database.loaded) {
             clearCredentialsViews(clearKeyFile = true, clearHardwareKey = true)
@@ -443,7 +452,8 @@ class MainCredentialActivity : DatabaseModeActivity() {
                 { onValidateSpecialMode() },
                 { onCancelSpecialMode() },
                 { onLaunchActivitySpecialMode() },
-                mCredentialActivityResultLauncher
+                mCredentialActivityResultLauncher,
+                triggerWebDavAutoSyncAfterUnlock
             )
         }
     }
@@ -607,6 +617,7 @@ class MainCredentialActivity : DatabaseModeActivity() {
                                                   allowUserVerification: Boolean,
                                                   cipherEncryptDatabase: CipherEncryptDatabase?,
                                                   fixDuplicateUUID: Boolean) {
+        mLoadTaskInProgress = true
         mDatabaseViewModel.loadDatabase(
             databaseUri,
             mainCredential,

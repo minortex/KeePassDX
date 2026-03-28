@@ -61,6 +61,7 @@ import com.kunzisoft.keepass.services.DatabaseTaskNotificationService.Companion.
 import com.kunzisoft.keepass.services.DatabaseTaskNotificationService.Companion.ACTION_DATABASE_REMOVE_UNLINKED_DATA_TASK
 import com.kunzisoft.keepass.services.DatabaseTaskNotificationService.Companion.ACTION_DATABASE_RESTORE_ENTRY_HISTORY
 import com.kunzisoft.keepass.services.DatabaseTaskNotificationService.Companion.ACTION_DATABASE_SAVE
+import com.kunzisoft.keepass.services.DatabaseTaskNotificationService.Companion.ACTION_DATABASE_SYNC_WEBDAV_TASK
 import com.kunzisoft.keepass.services.DatabaseTaskNotificationService.Companion.ACTION_DATABASE_UPDATE_COLOR_TASK
 import com.kunzisoft.keepass.services.DatabaseTaskNotificationService.Companion.ACTION_DATABASE_UPDATE_COMPRESSION_TASK
 import com.kunzisoft.keepass.services.DatabaseTaskNotificationService.Companion.ACTION_DATABASE_UPDATE_DEFAULT_USERNAME_TASK
@@ -295,6 +296,13 @@ class DatabaseTaskProvider(
             putParcelable(DatabaseTaskNotificationService.DATABASE_URI_KEY, fromDatabaseUri)
             putParcelable(DatabaseTaskNotificationService.MAIN_CREDENTIAL_KEY, mainCredential)
         }, ACTION_DATABASE_MERGE_TASK)
+    }
+
+    fun startDatabaseSyncWebDav(save: Boolean, uploadToWebDav: Boolean = true) {
+        start(Bundle().apply {
+            putBoolean(DatabaseTaskNotificationService.SAVE_DATABASE_KEY, save)
+            putBoolean(DatabaseTaskNotificationService.UPLOAD_TO_WEBDAV_KEY, uploadToWebDav)
+        }, ACTION_DATABASE_SYNC_WEBDAV_TASK)
     }
 
     fun startDatabaseReload(fixDuplicateUuid: Boolean) {

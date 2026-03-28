@@ -845,10 +845,12 @@ open class Database {
                 }
             }
             // Copy from the cache to the final stream
-            databaseOutputStream.invoke()?.use { outputStream ->
+            val outputStream = databaseOutputStream.invoke()
+                ?: throw DatabaseOutputException("Unable to open output stream")
+            outputStream.use { stream ->
                 cacheFile.inputStream().use { inputStream ->
                     inputStream.readAllBytes { buffer ->
-                        outputStream.write(buffer)
+                        stream.write(buffer)
                     }
                 }
             }

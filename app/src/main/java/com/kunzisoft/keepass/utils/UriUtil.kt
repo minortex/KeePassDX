@@ -117,11 +117,19 @@ object UriUtil {
                     }
                 }
             }
+        } catch (e: SecurityException) {
+            // Some providers (or ACTION_GET_CONTENT results) do not grant persistable access.
+            if (release) {
+                Log.w(TAG, "No persistable URI permission to release for $uri")
+            } else {
+                Log.w(TAG, "Persistable URI permission not granted for $uri")
+            }
         } catch (e: Exception) {
-            if (release)
+            if (release) {
                 Log.e(TAG, "Unable to release persistable URI permission", e)
-            else
+            } else {
                 Log.e(TAG, "Unable to take persistable URI permission", e)
+            }
         }
     }
 

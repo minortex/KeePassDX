@@ -507,22 +507,27 @@ class DatabaseKDBXMerger(private var database: DatabaseKDBX) {
             } else {
                 // Merge independently custom data
                 mergeCustomData(entry.customData, entryToMerge.customData)
+                val shouldMoveToRemoteLocation =
+                    entry.locationChanged.isBefore(entryToMerge.locationChanged)
                 // Merge by modification time
                 if (entry.lastModificationTime.isBefore(entryToMerge.lastModificationTime)) {
                     // Update entry with databaseEntryToMerge and merge history
                     entryToMerge.addHistoryFrom(entry)
                     entry.updateWith(entryToMerge, copyHistory = true, updateParents = false)
                     // Move the current entry to the verified location
-                    database.removeEntryFrom(entry, entry.parent)
-                    database.addEntryTo(entry, parentEntryToMerge)
+                    moveEntryToParentIfNeeded(entry, parentEntryToMerge)
                 } else if (entry.lastModificationTime.isAfter(entryToMerge.lastModificationTime)) {
                     // Don't touch the location but update the entry history
                     entry.addHistoryFrom(entryToMerge)
+                    // KeePass desktop "delete" moves nodes to recycle bin and updates locationChanged.
+                    // Follow newer location even when current content is newer.
+                    if (shouldMoveToRemoteLocation) {
+                        moveEntryToParentIfNeeded(entry, parentEntryToMerge)
+                    }
                 } else if (entry.lastModificationTime.isEquals(entryToMerge.lastModificationTime)) {
                     // If it's the same modification time, simply move entry to the right location,
                     // Current entry and entry to merge are normally the same
-                    database.removeEntryFrom(entry, entry.parent)
-                    database.addEntryTo(entry, parentEntryToMerge)
+                    moveEntryToParentIfNeeded(entry, parentEntryToMerge)
                 }
             }
         }
@@ -577,20 +582,37 @@ class DatabaseKDBXMerger(private var database: DatabaseKDBX) {
             } else {
                 // Merge independently custom data
                 mergeCustomData(group.customData, groupToMerge.customData)
+                val shouldMoveToRemoteLocation =
+                    group.locationChanged.isBefore(groupToMerge.locationChanged)
                 // Merge by modification time
                 if (group.lastModificationTime.isBefore(groupToMerge.lastModificationTime)) {
                     group.updateWith(groupToMerge, updateParents = false)
                     // Update the current group location to the verified one
-                    database.removeGroupFrom(group, group.parent)
-                    database.addGroupTo(group, parentGroupToMerge)
-                } else if (group.lastModificationTime.isAfter(group.lastModificationTime)) {
-                    // Don't touch the location
+                    moveGroupToParentIfNeeded(group, parentGroupToMerge)
+                } else if (group.lastModificationTime.isAfter(groupToMerge.lastModificationTime)) {
+                    // Keep current content, but follow newer remote location.
+                    if (shouldMoveToRemoteLocation) {
+                        moveGroupToParentIfNeeded(group, parentGroupToMerge)
+                    }
                 } else if (group.lastModificationTime.isEquals(groupToMerge.lastModificationTime)) {
                     // If it's the same modification time, simply move group to the right location
-                    database.removeGroupFrom(group, group.parent)
-                    database.addGroupTo(group, parentGroupToMerge)
+                    moveGroupToParentIfNeeded(group, parentGroupToMerge)
                 }
             }
+        }
+    }
+
+    private fun moveEntryToParentIfNeeded(entry: EntryKDBX, parent: GroupKDBX) {
+        if (entry.parent?.nodeId != parent.nodeId) {
+            database.removeEntryFrom(entry, entry.parent)
+            database.addEntryTo(entry, parent)
+        }
+    }
+
+    private fun moveGroupToParentIfNeeded(group: GroupKDBX, parent: GroupKDBX) {
+        if (group.parent?.nodeId != parent.nodeId) {
+            database.removeGroupFrom(group, group.parent)
+            database.addGroupTo(group, parent)
         }
     }
 }

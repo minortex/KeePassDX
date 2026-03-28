@@ -159,6 +159,11 @@ abstract class DatabaseLockActivity : DatabaseModeActivity(),
                     finish()
                 }
             }
+            DatabaseTaskNotificationService.ACTION_DATABASE_SYNC_WEBDAV_TASK -> {
+                if (!result.isSuccess) {
+                    this.showActionErrorIfNeeded(result)
+                }
+            }
         }
     }
 
@@ -197,6 +202,26 @@ abstract class DatabaseLockActivity : DatabaseModeActivity(),
 
     fun mergeDatabaseFrom(uri: Uri, mainCredential: MainCredential) {
         mDatabaseViewModel.mergeDatabase(mAutoSaveEnable, uri, mainCredential)
+    }
+
+    fun syncDatabaseWithWebDav(uploadToWebDav: Boolean = true) {
+        // Sync must persist merged content locally whenever the database is writable.
+        mDatabaseViewModel.syncDatabaseWithWebDav(
+            save = !mDatabaseReadOnly,
+            uploadToWebDav = uploadToWebDav
+        )
+    }
+
+    fun showWebDavConfigurationPrompt(onConfigure: () -> Unit) {
+        if (isFinishing) return
+        AlertDialog.Builder(this)
+            .setTitle(R.string.webdav_config_prompt_title)
+            .setMessage(R.string.webdav_config_prompt_message)
+            .setPositiveButton(R.string.configure) { _, _ ->
+                onConfigure()
+            }
+            .setNegativeButton(R.string.menu_cancel, null)
+            .show()
     }
 
     fun reloadDatabase() {
