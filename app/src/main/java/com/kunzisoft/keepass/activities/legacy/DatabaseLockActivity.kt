@@ -43,6 +43,7 @@ import com.kunzisoft.keepass.database.element.Group
 import com.kunzisoft.keepass.database.element.node.Node
 import com.kunzisoft.keepass.database.element.node.NodeId
 import com.kunzisoft.keepass.model.GroupInfo
+import com.kunzisoft.keepass.database.action.SyncWebDavDatabaseRunnable
 import com.kunzisoft.keepass.services.DatabaseTaskNotificationService
 import com.kunzisoft.keepass.settings.PreferencesUtil
 import com.kunzisoft.keepass.tasks.ActionRunnable
@@ -160,7 +161,22 @@ abstract class DatabaseLockActivity : DatabaseModeActivity(),
                 }
             }
             DatabaseTaskNotificationService.ACTION_DATABASE_SYNC_WEBDAV_TASK -> {
-                if (!result.isSuccess) {
+                if (result.isSuccess) {
+                    reloadActivity()
+                    val bundle = result.data
+                    if (bundle != null) {
+                        val added = bundle.getInt(SyncWebDavDatabaseRunnable.RESULT_SYNC_ADDED_COUNT, 0)
+                        val deleted = bundle.getInt(SyncWebDavDatabaseRunnable.RESULT_SYNC_DELETED_COUNT, 0)
+                        val modified = bundle.getInt(SyncWebDavDatabaseRunnable.RESULT_SYNC_MODIFIED_COUNT, 0)
+                        if (added == 0 && deleted == 0 && modified == 0) {
+                            Toast.makeText(this, R.string.sync_success, Toast.LENGTH_LONG).show()
+                        } else {
+                            Toast.makeText(this, getString(R.string.sync_success_with_changes, added, deleted, modified), Toast.LENGTH_LONG).show()
+                        }
+                    } else {
+                        Toast.makeText(this, R.string.sync_success, Toast.LENGTH_LONG).show()
+                    }
+                } else {
                     this.showActionErrorIfNeeded(result)
                 }
             }
