@@ -72,6 +72,12 @@ class SyncWebDavDatabaseRunnable(
             }
             val changeSummary = computeChangeSummary(beforeSnapshots, buildEntrySnapshots())
 
+            if (uploadToWebDav) {
+                fileToUpload = File.createTempFile("webdav_upload_", ".kdbx", context.cacheDir)
+                exportMergedDatabase(fileToUpload)
+                webDavClient.uploadFile(fileToUpload, downloadedETag)
+            }
+
             super.onActionRun()
             if (result.isSuccess) {
                 val bundle = result.data ?: Bundle()
@@ -79,12 +85,6 @@ class SyncWebDavDatabaseRunnable(
                 bundle.putInt(RESULT_SYNC_DELETED_COUNT, changeSummary.deleted)
                 bundle.putInt(RESULT_SYNC_MODIFIED_COUNT, changeSummary.modified)
                 result.data = bundle
-            }
-
-            if (result.isSuccess && uploadToWebDav) {
-                fileToUpload = File.createTempFile("webdav_upload_", ".kdbx", context.cacheDir)
-                exportMergedDatabase(fileToUpload)
-                webDavClient.uploadFile(fileToUpload, downloadedETag)
             }
         } catch (e: DatabaseException) {
             setError(e)
@@ -96,13 +96,17 @@ class SyncWebDavDatabaseRunnable(
 
     private fun exportMergedDatabase(outputFile: File) {
         val cacheFile = File.createTempFile("webdav_upload_cache_", ".kdbx", context.cacheDir)
-        database.saveData(
-            cacheFile = cacheFile,
-            databaseOutputStream = { outputFile.outputStream() },
-            isNewLocation = false,
-            masterCredential = null,
-            challengeResponseRetriever = challengeResponseRetriever
-        )
+        try {
+            database.saveData(
+                cacheFile = cacheFile,
+                databaseOutputStream = { outputFile.outputStream() },
+                isNewLocation = false,
+                masterCredential = null,
+                challengeResponseRetriever = challengeResponseRetriever
+            )
+        } finally {
+            cacheFile.delete()
+        }
     }
 
     private fun buildEntrySnapshots(): Map<String, EntrySnapshot> {
