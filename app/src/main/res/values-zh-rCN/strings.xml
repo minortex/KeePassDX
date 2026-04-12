@@ -306,7 +306,8 @@
     <string name="html_text_dev_feature_work_hard">我们正在努力的研发并尽快发布新特性。</string>
     <string name="html_text_dev_feature_upgrade">别忘了通过安装新版本来保持你的应用是最新的。</string>
     <string name="selection_mode">选择模式</string>
-    <string name="do_not_kill_app">同步进行中，请勿强制结束应用。</string>
+    <string name="do_not_kill_app">不要终止应用…</string>
+    <string name="sync_do_not_kill_app">同步进行中，请勿强制结束应用。</string>
     <string name="lock_database_back_root_title">按“返回”锁定</string>
     <string name="lock_database_back_root_summary">如果您位于数据库的根屏幕，请按“返回”锁定数据库</string>
     <string name="recycle_bin">回收站</string>
@@ -675,7 +676,6 @@
     <string name="html_about_privacy">&lt;strong&gt;不获取用户数据&lt;/strong&gt;，此应用不连接任何服务器，仅在本地运行，并充分尊重用户的隐私。</string>
     <string name="merge_success">合并成功完成</string>
     <string name="sync_success">同步成功完成</string>
-    <string name="sync_success_no_changes">同步完成: 数据无变化</string>
     <string name="sync_success_with_changes">同步完成：新增 %1$d 条，删除 %2$d 条，修改 %3$d 条</string>
     <string name="webdav_sync_title">WebDAV 同步</string>
     <string name="webdav_url_title">WebDAV 地址</string>

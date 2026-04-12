@@ -533,7 +533,9 @@ open class DatabaseTaskNotificationService : LockNotificationService(), Progress
 
         // Warning if data is saved
         mProgressMessage.warningId =
-            if (mSaveState)
+            if (intentAction == ACTION_DATABASE_SYNC_WEBDAV_TASK)
+                R.string.sync_do_not_kill_app
+            else if (mSaveState)
                 R.string.do_not_kill_app
             else
                 null

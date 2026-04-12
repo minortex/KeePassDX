@@ -156,7 +156,8 @@
     <string name="disable">禁用</string>
     <string name="discard">丟棄</string>
     <string name="discard_changes">放棄變更？</string>
-    <string name="do_not_kill_app">同步進行中，請勿強制結束應用程式。</string>
+    <string name="do_not_kill_app">不要終止應用程式…</string>
+    <string name="sync_do_not_kill_app">同步進行中，請勿強制結束應用程式。</string>
     <string name="download">下載</string>
     <string name="download_attachment">下載 %1$s</string>
     <string name="download_canceled">已取消！</string>
@@ -663,7 +664,6 @@
     <string name="ask">詢問</string>
     <string name="merge_success">合併成功</string>
     <string name="sync_success">同步成功完成</string>
-    <string name="sync_success_no_changes">同步完成: 資料無變化</string>
     <string name="sync_success_with_changes">同步完成：新增 %1$d 筆，刪除 %2$d 筆，修改 %3$d 筆</string>
     <string name="webdav_sync_title">WebDAV 同步</string>
     <string name="webdav_url_title">WebDAV 位址</string>
