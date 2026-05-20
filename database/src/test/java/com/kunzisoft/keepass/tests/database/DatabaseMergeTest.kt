@@ -175,7 +175,7 @@ class DatabaseMergeTest {
             nodeId = NodeIdUUID(entryId)
             this.title = title
             username = "user-$title"
-            password = "password-$title"
+            password = "password-$title".toCharArray()
             if (lastModificationTime != null) {
                 creationTime = DateInstant(lastModificationTime)
                 this.lastModificationTime = DateInstant(lastModificationTime)

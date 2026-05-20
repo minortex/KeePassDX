@@ -16,7 +16,7 @@ class WebDavClient(
     private val password: String
 ) {
 
-    fun downloadToFile(targetFile: File): String? {
+    fun downloadToFile(targetFile: File): RemoteFileMetadata {
         val connection = buildConnection("GET")
         return try {
             when (val responseCode = connection.responseCode) {
@@ -26,7 +26,10 @@ class WebDavClient(
                             inputStream.copyTo(outputStream)
                         }
                     }
-                    connection.getHeaderField("ETag")
+                    RemoteFileMetadata(
+                        eTag = connection.getHeaderField("ETag"),
+                        lastModified = connection.getHeaderField("Last-Modified")
+                    )
                 }
                 HttpURLConnection.HTTP_UNAUTHORIZED,
                 HttpURLConnection.HTTP_FORBIDDEN -> throw WebDavAuthenticationDatabaseException()
@@ -41,13 +44,18 @@ class WebDavClient(
         }
     }
 
-    fun uploadFile(sourceFile: File, eTag: String?) {
+    fun uploadFile(sourceFile: File, remoteFileMetadata: RemoteFileMetadata) {
+        if (!remoteFileMetadata.hasValidator()) {
+            throw WebDavConflictDatabaseException()
+        }
         val connection = buildConnection("PUT").apply {
             doOutput = true
             setRequestProperty("Content-Type", "application/octet-stream")
             setFixedLengthStreamingMode(sourceFile.length())
-            if (!eTag.isNullOrEmpty()) {
-                setRequestProperty("If-Match", eTag)
+            if (!remoteFileMetadata.eTag.isNullOrEmpty()) {
+                setRequestProperty("If-Match", remoteFileMetadata.eTag)
+            } else if (!remoteFileMetadata.lastModified.isNullOrEmpty()) {
+                setRequestProperty("If-Unmodified-Since", remoteFileMetadata.lastModified)
             }
         }
         try {
@@ -85,5 +93,14 @@ class WebDavClient(
         val auth = "$username:$password"
         val encodedAuth = Base64.encodeToString(auth.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
         return "Basic $encodedAuth"
+    }
+
+    data class RemoteFileMetadata(
+        val eTag: String?,
+        val lastModified: String?
+    ) {
+        fun hasValidator(): Boolean {
+            return !eTag.isNullOrEmpty() || !lastModified.isNullOrEmpty()
+        }
     }
 }

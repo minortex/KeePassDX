@@ -277,6 +277,7 @@ class MainCredentialActivity : DatabaseModeActivity() {
                                 setMessage(message)
                                 setPositiveButton(getString(android.R.string.ok)) { _, _ ->
                                     databaseFileState.databaseUri?.let { databaseFileUri ->
+                                        mLoadTaskInProgress = true
                                         mDatabaseViewModel.loadDatabase(
                                             databaseUri = databaseFileUri,
                                             mainCredential = databaseFileState.mainCredential,
@@ -648,6 +649,7 @@ class MainCredentialActivity : DatabaseModeActivity() {
         } else {
             databaseFileUri?.let { databaseUri ->
                 // Show the progress dialog and load the database
+                mLoadTaskInProgress = true
                 mDatabaseViewModel.loadDatabase(
                     databaseUri = databaseUri,
                     mainCredential = mainCredential ?: MainCredential(),

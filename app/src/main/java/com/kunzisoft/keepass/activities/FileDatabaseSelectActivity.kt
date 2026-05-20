@@ -75,6 +75,7 @@ import com.kunzisoft.keepass.view.showActionErrorIfNeeded
 import com.kunzisoft.keepass.viewmodels.DatabaseFilesViewModel
 import java.io.File
 import java.io.FileNotFoundException
+import java.security.MessageDigest
 import kotlin.concurrent.thread
 
 class FileDatabaseSelectActivity : DatabaseModeActivity(),
@@ -384,7 +385,14 @@ class FileDatabaseSelectActivity : DatabaseModeActivity(),
             .replace(Regex("[^a-zA-Z0-9._-]"), "_")
             .trim('_', '.')
             .ifBlank { DEFAULT_WEBSYNC_DATABASE_FILE_NAME }
-        return File(storageDirectory, fileName)
+        return File(storageDirectory, "${buildStableFilePrefix(url)}-$fileName")
+    }
+
+    private fun buildStableFilePrefix(value: String): String {
+        return MessageDigest.getInstance("SHA-256")
+            .digest(value.toByteArray(Charsets.UTF_8))
+            .take(8)
+            .joinToString("") { "%02x".format(it.toInt() and 0xff) }
     }
 
     private fun fileNoFoundAction(e: FileNotFoundException) {

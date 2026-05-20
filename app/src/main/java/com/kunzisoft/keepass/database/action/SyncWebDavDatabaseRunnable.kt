@@ -59,7 +59,7 @@ class SyncWebDavDatabaseRunnable(
             }
 
             fileToMerge = File.createTempFile("webdav_download_", ".kdbx", context.cacheDir)
-            val downloadedETag = webDavClient.downloadToFile(fileToMerge)
+            val remoteFileMetadata = webDavClient.downloadToFile(fileToMerge)
 
             fileToMerge.inputStream().use { databaseToMergeInputStream ->
                 database.mergeData(
@@ -75,7 +75,7 @@ class SyncWebDavDatabaseRunnable(
             if (uploadToWebDav) {
                 fileToUpload = File.createTempFile("webdav_upload_", ".kdbx", context.cacheDir)
                 exportMergedDatabase(fileToUpload)
-                webDavClient.uploadFile(fileToUpload, downloadedETag)
+                webDavClient.uploadFile(fileToUpload, remoteFileMetadata)
             }
 
             super.onActionRun()

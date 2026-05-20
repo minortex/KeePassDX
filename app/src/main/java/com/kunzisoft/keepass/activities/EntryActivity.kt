@@ -544,6 +544,7 @@ class EntryActivity : DatabaseLockActivity() {
         if (mEntryViewModel.entryIsHistory || mDatabaseReadOnly) {
             menu?.findItem(R.id.menu_save_database)?.isVisible = false
             menu?.findItem(R.id.menu_merge_database)?.isVisible = false
+            menu?.findItem(R.id.menu_sync_webdav)?.isVisible = false
         }
         if (!mMergeDataAllowed) {
             menu?.findItem(R.id.menu_merge_database)?.isVisible = false
