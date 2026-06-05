@@ -72,13 +72,14 @@ class SyncWebDavDatabaseRunnable(
             }
             val changeSummary = computeChangeSummary(beforeSnapshots, buildEntrySnapshots())
 
-            if (uploadToWebDav) {
+            super.onActionRun()
+
+            if (result.isSuccess && uploadToWebDav) {
                 fileToUpload = File.createTempFile("webdav_upload_", ".kdbx", context.cacheDir)
                 exportMergedDatabase(fileToUpload)
                 webDavClient.uploadFile(fileToUpload, remoteFileMetadata)
             }
 
-            super.onActionRun()
             if (result.isSuccess) {
                 val bundle = result.data ?: Bundle()
                 bundle.putInt(RESULT_SYNC_ADDED_COUNT, changeSummary.added)
