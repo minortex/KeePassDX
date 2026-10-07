@@ -118,6 +118,8 @@ class MainCredentialActivity : DatabaseModeActivity() {
     private val mPasswordActivityEducation = PasswordActivityEducation(this)
     private var mExternalFileHelper: ExternalFileHelper? = null
 
+    private var mLoadTaskInProgress: Boolean = false
+
     override fun manageDatabaseInfo(): Boolean  = false
 
     override fun errorCoordinatorView(): View = coordinatorLayout
@@ -230,6 +232,7 @@ class MainCredentialActivity : DatabaseModeActivity() {
                                 )
                             }
                             is MainCredentialViewModel.DatabaseFileEvent.LoadDatabase -> {
+                                mLoadTaskInProgress = true
                                 mDatabaseViewModel.loadDatabase(
                                     databaseUri = event.databaseUri,
                                     mainCredential = event.mainCredential,
@@ -249,7 +252,8 @@ class MainCredentialActivity : DatabaseModeActivity() {
                                     onValidateSpecialMode = { onValidateSpecialMode() },
                                     onCancelSpecialMode = { onCancelSpecialMode() },
                                     onLaunchActivitySpecialMode = { onLaunchActivitySpecialMode() },
-                                    mCredentialActivityResultLauncher
+                                    mCredentialActivityResultLauncher,
+                                    triggerWebDavAutoSyncAfterUnlock = true
                                 )
                             }
                             is MainCredentialViewModel.DatabaseFileEvent.ShowErrorSaveReadOnlyDatabase -> {
@@ -264,6 +268,7 @@ class MainCredentialActivity : DatabaseModeActivity() {
                                     setMessage(message)
                                     setPositiveButton(getString(android.R.string.ok)) { _, _ ->
                                         event.databaseUri?.let { databaseFileUri ->
+                                            mLoadTaskInProgress = true
                                             mDatabaseViewModel.loadDatabase(
                                                 databaseUri = databaseFileUri,
                                                 mainCredential = event.mainCredential,
@@ -361,6 +366,7 @@ class MainCredentialActivity : DatabaseModeActivity() {
     override fun onDatabaseRetrieved(database: ContextualDatabase) {
         super.onDatabaseRetrieved(database)
         // Trying to load another database
+        if (mLoadTaskInProgress) return
         mMainCredentialViewModel.onDatabaseRetrieved(database)
     }
 
@@ -372,6 +378,7 @@ class MainCredentialActivity : DatabaseModeActivity() {
         super.onDatabaseActionFinished(database, actionTask, result)
         when (actionTask) {
             ACTION_DATABASE_LOAD_TASK -> {
+                mLoadTaskInProgress = false
                 if (result.isSuccess) {
                     mMainCredentialViewModel.onDatabaseRetrieved(database)
                 } else {

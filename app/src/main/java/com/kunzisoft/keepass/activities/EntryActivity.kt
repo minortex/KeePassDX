@@ -71,7 +71,9 @@ import com.kunzisoft.keepass.model.EntryAttachmentState
 import com.kunzisoft.keepass.services.AttachmentFileNotificationService
 import com.kunzisoft.keepass.services.DatabaseTaskNotificationService.Companion.ACTION_DATABASE_DELETE_ENTRY_HISTORY
 import com.kunzisoft.keepass.services.DatabaseTaskNotificationService.Companion.ACTION_DATABASE_RESTORE_ENTRY_HISTORY
+import com.kunzisoft.keepass.settings.NestedSettingsFragment
 import com.kunzisoft.keepass.settings.PreferencesUtil
+import com.kunzisoft.keepass.settings.SettingsActivity
 import com.kunzisoft.keepass.tasks.ActionRunnable
 import com.kunzisoft.keepass.tasks.AttachmentFileBinderManager
 import com.kunzisoft.keepass.timeout.TimeoutHelper
@@ -510,6 +512,7 @@ class EntryActivity : DatabaseLockActivity() {
         if (!mEntryViewModel.mergeDatabaseActionAllowed()
             || mSpecialMode != SpecialMode.DEFAULT) {
             menu?.findItem(R.id.menu_merge_database)?.isVisible = false
+            menu?.findItem(R.id.menu_sync_webdav)?.isVisible = false
         }
         if (!mEntryViewModel.reloadDatabaseActionAllowed()
             || mSpecialMode != SpecialMode.DEFAULT) {
@@ -607,6 +610,20 @@ class EntryActivity : DatabaseLockActivity() {
             }
             R.id.menu_merge_database -> {
                 mergeDatabase()
+            }
+            R.id.menu_sync_webdav -> {
+                val databaseUri = mDatabase?.fileUri
+                if (databaseUri == null || !PreferencesUtil.isWebDavSyncConfigured(this, databaseUri)) {
+                    showWebDavConfigurationPrompt {
+                        SettingsActivity.launch(
+                            activity = this,
+                            timeoutEnable = true,
+                            screen = NestedSettingsFragment.Screen.DATABASE
+                        )
+                    }
+                } else {
+                    syncDatabaseWithWebDav()
+                }
             }
             R.id.menu_reload_database -> {
                 reloadDatabase()

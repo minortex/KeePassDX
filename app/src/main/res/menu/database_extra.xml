@@ -26,16 +26,22 @@
             android:orderInCategory="80"
             app:iconTint="?attr/colorControlNormal"
             app:showAsAction="ifRoom" />
+        <item android:id="@+id/menu_sync_webdav"
+            android:icon="@drawable/ic_downloading_white_24dp"
+            android:title="@string/menu_sync_webdav"
+            android:orderInCategory="81"
+            app:iconTint="?attr/colorControlNormal"
+            app:showAsAction="ifRoom" />
         <item android:id="@+id/menu_save_copy_to"
             android:icon="@drawable/ic_save_copy_to_white_24dp"
             android:title="@string/menu_save_copy_to"
-            android:orderInCategory="81"
+            android:orderInCategory="82"
             app:iconTint="?attr/colorControlNormal"
             app:showAsAction="ifRoom" />
         <item android:id="@+id/menu_lock_all"
             android:icon="@drawable/ic_lock_white_24dp"
             android:title="@string/lock"
-            android:orderInCategory="82"
+            android:orderInCategory="83"
             app:iconTint="?attr/colorControlNormal"
             app:showAsAction="ifRoom" />
     </group>
