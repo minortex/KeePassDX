@@ -11,6 +11,8 @@ android {
     defaultConfig {
         minSdk = 19
 
+        multiDexEnabled = true
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -32,6 +34,7 @@ android {
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
+            isReturnDefaultValues = true
         }
     }
 
@@ -52,6 +55,7 @@ dependencies {
     api(project(":crypto"))
 
     // Tests
+    androidTestImplementation(libs.androidx.multidex)
     androidTestImplementation(libs.androidx.test.runner)
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)

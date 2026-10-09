@@ -68,7 +68,7 @@ class SyncWebDavDatabaseRunnable(
                     progressTaskUpdater = progressTaskUpdater
                 )
             }
-            val changeSummary = computeChangeSummary(beforeSnapshots, buildEntrySnapshots())
+            val changeSummary = SyncChangeSummary.compute(beforeSnapshots, buildEntrySnapshots())
 
             super.onActionRun()
 
@@ -108,13 +108,13 @@ class SyncWebDavDatabaseRunnable(
         }
     }
 
-    private fun buildEntrySnapshots(): Map<String, EntrySnapshot> {
-        val snapshots = mutableMapOf<String, EntrySnapshot>()
+    private fun buildEntrySnapshots(): Map<String, SyncChangeSummary.Snapshot> {
+        val snapshots = mutableMapOf<String, SyncChangeSummary.Snapshot>()
         fun traverse(group: Group) {
             group.getChildEntries().forEach { entry ->
                 val entryId = entry.nodeId.toString()
                 val parentId = entry.parent?.nodeId?.toString().orEmpty()
-                val snapshot = EntrySnapshot(
+                val snapshot = SyncChangeSummary.Snapshot(
                     fingerprint = "${entry.lastModificationTime.toMilliseconds()}#$parentId",
                     inRecycleBin = isEntryInRecycleBin(entry)
                 )
@@ -130,57 +130,6 @@ class SyncWebDavDatabaseRunnable(
         val parent = entry.parent ?: return false
         return database.groupIsInRecycleBin(parent)
     }
-
-    private fun computeChangeSummary(
-        before: Map<String, EntrySnapshot>,
-        after: Map<String, EntrySnapshot>
-    ): ChangeSummary {
-        var added = 0
-        var deleted = 0
-        var modified = 0
-
-        val allIds = mutableSetOf<String>()
-        allIds.addAll(before.keys)
-        allIds.addAll(after.keys)
-
-        allIds.forEach { entryId ->
-            val beforeSnapshot = before[entryId]
-            val afterSnapshot = after[entryId]
-            when {
-                beforeSnapshot == null && afterSnapshot != null -> {
-                    if (!afterSnapshot.inRecycleBin) {
-                        added++
-                    }
-                }
-                beforeSnapshot != null && afterSnapshot == null -> {
-                    if (!beforeSnapshot.inRecycleBin) {
-                        deleted++
-                    }
-                }
-                beforeSnapshot != null && afterSnapshot != null -> {
-                    if (!beforeSnapshot.inRecycleBin && afterSnapshot.inRecycleBin) {
-                        deleted++
-                    } else if (beforeSnapshot.inRecycleBin && !afterSnapshot.inRecycleBin) {
-                        added++
-                    } else if (beforeSnapshot.fingerprint != afterSnapshot.fingerprint) {
-                        modified++
-                    }
-                }
-            }
-        }
-        return ChangeSummary(added, deleted, modified)
-    }
-
-    private data class EntrySnapshot(
-        val fingerprint: String,
-        val inRecycleBin: Boolean
-    )
-
-    private data class ChangeSummary(
-        val added: Int,
-        val deleted: Int,
-        val modified: Int
-    )
 
     companion object {
         const val RESULT_SYNC_ADDED_COUNT = "RESULT_SYNC_ADDED_COUNT"
